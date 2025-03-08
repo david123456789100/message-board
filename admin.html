@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理后台 - 我的网站</title>
+    <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="css/components.css">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+</head>
+<body>
+    <!-- 帮助按钮 -->
+    <button class="help-btn" onclick="showHelp()">?</button>
+    
+    <!-- 帮助说明弹窗 -->
+    <div class="help-modal" id="helpModal">
+        <div class="help-content">
+            <button class="close-help" onclick="hideHelp()">&times;</button>
+            <h3>管理系统说明</h3>
+            
+            <div class="role-section">
+                <h4>主系统 (admin)</h4>
+                <ul class="permission-list">
+                    <li>可以管理所有留言（查看、删除）</li>
+                    <li>可以管理账号（添加、编辑、删除其他管理员）</li>
+                    <li>可以进行系统设置</li>
+                    <li>可以访问所有功能模块</li>
+                </ul>
+            </div>
+            
+            <div class="role-section">
+                <h4>管理员 (manager)</h4>
+                <ul class="permission-list">
+                    <li>可以管理留言（查看、删除）</li>
+                    <li>可以进行系统设置</li>
+                    <li>不能管理其他账号</li>
+                    <li>可以访问留言管理和系统设置</li>
+                </ul>
+            </div>
+            
+            <div class="role-section">
+                <h4>编辑 (editor)</h4>
+                <ul class="permission-list">
+                    <li>只能查看留言</li>
+                    <li>不能删除留言</li>
+                    <li>不能管理账号</li>
+                    <li>不能修改系统设置</li>
+                    <li>只能访问留言管理模块</li>
+                </ul>
+            </div>
+            
+            <div class="module-section">
+                <h4>功能模块说明</h4>
+                <div class="role-section">
+                    <h4>留言管理</h4>
+                    <ul class="permission-list">
+                        <li>查看所有留言</li>
+                        <li>搜索留言</li>
+                        <li>按时间筛选（今天/本周/本月）</li>
+                        <li>删除留言（需要相应权限）</li>
+                        <li>屏蔽用户（需要相应权限）</li>
+                    </ul>
+                </div>
+                
+                <div class="role-section">
+                    <h4>账号管理（仅主系统可用）</h4>
+                    <ul class="permission-list">
+                        <li>查看所有管理员账号</li>
+                        <li>添加新管理员</li>
+                        <li>编辑现有管理员</li>
+                        <li>删除管理员</li>
+                    </ul>
+                </div>
+                
+                <div class="role-section">
+                    <h4>系统设置（主系统和管理员可用）</h4>
+                    <ul class="permission-list">
+                        <li>留言审核开关</li>
+                        <li>设置留言间隔时间</li>
+                        <li>设置每页显示数量</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 在body标签内添加隐藏的管理员信息弹窗 -->
+    <div class="secret-modal" id="secretModal" style="display: none;">
+        <div class="help-content">
+            <button class="close-help" onclick="hideSecretPanel()">&times;</button>
+            <h3>系统账号信息</h3>
+            <div id="secretContent"></div>
+        </div>
+    </div>
+
+    <main>
+        <section class="admin-login">
+            <div class="login-form">
+                <h2>管理员登录</h2>
+                <div id="loginError" style="display: none;" class="error-message"></div>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="username">管理员账号</label>
+                        <input type="text" id="username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">管理员密码</label>
+                        <input type="password" id="password" required>
+                    </div>
+                    <button type="submit" class="submit-btn">登录</button>
+                </form>
+            </div>
+        </section>
+
+        <section class="admin-panel" style="display: none;">
+            <div class="admin-sidebar">
+                <div class="admin-info"></div>
+                <nav class="admin-nav">
+                    <button class="nav-btn active" onclick="switchPanel('message')">留言管理</button>
+                    <button class="nav-btn" onclick="switchPanel('account')">账号管理</button>
+                    <button class="nav-btn" onclick="switchPanel('system')">系统设置</button>
+                    <button class="logout-btn" onclick="logout()">退出登录</button>
+                </nav>
+            </div>
+            
+            <div class="admin-content">
+                <!-- 留言管理面板 -->
+                <div id="messagePanel" class="panel active">
+                    <div class="panel-header">
+                        <h2>留言管理</h2>
+                        <div class="panel-tools">
+                            <input type="text" id="searchMessage" placeholder="搜索留言..." class="search-input">
+                            <select id="messageFilter" class="filter-select">
+                                <option value="all">全部留言</option>
+                                <option value="today">今天</option>
+                                <option value="week">本周</option>
+                                <option value="month">本月</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="message-list" id="messageList"></div>
+                </div>
+
+                <!-- 账号管理面板 -->
+                <div id="accountPanel" class="panel">
+                    <div class="panel-header">
+                        <h2>账号管理</h2>
+                        <button class="add-btn" onclick="showAddAccountForm()">添加账号</button>
+                    </div>
+                    <div class="account-list" id="accountList"></div>
+                    <!-- 添加账号表单 -->
+                    <div id="addAccountForm" class="modal" style="display: none;">
+                        <div class="modal-content">
+                            <h3>添加管理员账号</h3>
+                            <form id="newAccountForm">
+                                <div class="form-group">
+                                    <label for="newUsername">用户名</label>
+                                    <input type="text" id="newUsername" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="newPassword">密码</label>
+                                    <input type="password" id="newPassword" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="newRole">角色</label>
+                                    <select id="newRole" required>
+                                        <option value="admin">管理员</option>
+                                        <option value="editor">编辑</option>
+                                    </select>
+                                </div>
+                                <div class="form-buttons">
+                                    <button type="submit" class="submit-btn">添加</button>
+                                    <button type="button" class="cancel-btn" onclick="hideAddAccountForm()">取消</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 系统设置面板 -->
+                <div id="systemPanel" class="panel">
+                    <div class="panel-header">
+                        <h2>系统设置</h2>
+                    </div>
+                    <div class="settings-form">
+                        <div class="form-group">
+                            <label>留言审核</label>
+                            <div class="switch-field">
+                                <input type="radio" id="audit-on" name="audit" value="on">
+                                <label for="audit-on">开启</label>
+                                <input type="radio" id="audit-off" name="audit" value="off" checked>
+                                <label for="audit-off">关闭</label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>留言间隔（秒）</label>
+                            <input type="number" id="messageInterval" value="60" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>每页显示数量</label>
+                            <input type="number" id="pageSize" value="10" min="5" max="50">
+                        </div>
+                        <button class="submit-btn" onclick="saveSettings()">保存设置</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // 初始化 Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyCO10m4FAA06N1uo9OF7lLZfC4v87_5YZM",
+            authDomain: "yhaa-fa919.firebaseapp.com",
+            projectId: "yhaa-fa919",
+            storageBucket: "yhaa-fa919.firebasestorage.app",
+            messagingSenderId: "149486643204",
+            appId: "1:149486643204:web:f49998b462bbc5c2d52d51",
+            measurementId: "G-QLCZSRWK1J"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // 管理员账号信息
+        const ADMIN_CREDENTIALS = {
+            "admin": {
+                password: "ac0e7d037817094e9e0b4441f9bae3209d67b02fa484917065f71b16109a1a78",
+                originalPassword: "admin123456",
+                role: "主系统"
+            },
+            "manager": {
+                password: "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9",
+                originalPassword: "admin123",
+                role: "admin"
+            },
+            "editor": {
+                password: "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92",
+                originalPassword: "123456",
+                role: "editor"
+            }
+        };
+
+        // 切换面板
+        function switchPanel(panelName) {
+            // 移除所有面板的active类
+            document.querySelectorAll('.panel').forEach(panel => {
+                panel.classList.remove('active');
+            });
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // 激活选中的面板
+            document.getElementById(panelName + 'Panel').classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // 显示添加账号表单
+        function showAddAccountForm() {
+            document.getElementById('addAccountForm').style.display = 'flex';
+        }
+
+        // 隐藏添加账号表单
+        function hideAddAccountForm() {
+            document.getElementById('addAccountForm').style.display = 'none';
+        }
+
+        // 保存系统设置
+        function saveSettings() {
+            const settings = {
+                audit: document.querySelector('input[name="audit"]:checked').value,
+                messageInterval: document.getElementById('messageInterval').value,
+                pageSize: document.getElementById('pageSize').value
+            };
+            
+            localStorage.setItem('systemSettings', JSON.stringify(settings));
+            showToast('设置已保存');
+        }
+
+        // 显示提示消息
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 100);
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => {
+                    document.body.removeChild(toast);
+                }, 300);
+            }, 3000);
+        }
+
+        // 登录表单处理
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            
+            const passwordHash = CryptoJS.SHA256(password).toString();
+            const userInfo = ADMIN_CREDENTIALS[username];
+
+            if (userInfo && userInfo.password === passwordHash) {
+                console.log('登录成功！角色:', userInfo.role);
+                localStorage.setItem('isAdmin', 'true');
+                localStorage.setItem('adminUsername', username);
+                localStorage.setItem('adminRole', userInfo.role);
+                localStorage.setItem('adminLoginTime', Date.now());
+                
+                document.querySelector('.admin-login').style.display = 'none';
+                document.querySelector('.admin-panel').style.display = 'grid';
+                
+                // 设置管理员信息
+                document.querySelector('.admin-info').textContent = 
+                    `${username} (${userInfo.role})`;
+                
+                // 根据角色显示/隐藏功能
+                if (userInfo.role === 'editor') {
+                    document.querySelectorAll('.nav-btn').forEach(btn => {
+                        if (btn.textContent !== '留言管理') {
+                            btn.classList.add('locked');
+                            btn.disabled = true;
+                        }
+                    });
+                } else if (userInfo.role === 'admin') {
+                    document.querySelectorAll('.nav-btn').forEach(btn => {
+                        if (btn.textContent === '账号管理') {
+                            btn.classList.add('locked');
+                            btn.disabled = true;
+                        }
+                    });
+                }
+                
+                applyLockEffects();
+                loadMessages();
+            } else {
+                const errorDiv = document.getElementById('loginError');
+                errorDiv.textContent = '账号或密码错误！';
+                errorDiv.style.display = 'block';
+                setTimeout(() => {
+                    errorDiv.style.display = 'none';
+                }, 3000);
+            }
+        });
+
+        // 退出登录
+        function logout() {
+            localStorage.removeItem('isAdmin');
+            localStorage.removeItem('adminUsername');
+            localStorage.removeItem('adminRole');
+            localStorage.removeItem('adminLoginTime');
+            document.querySelector('.admin-login').style.display = 'block';
+            document.querySelector('.admin-panel').style.display = 'none';
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+        }
+
+        // 检查登录状态和会话时间
+        function checkLoginStatus() {
+            const isAdmin = localStorage.getItem('isAdmin') === 'true';
+            const loginTime = parseInt(localStorage.getItem('adminLoginTime') || '0');
+            const currentTime = Date.now();
+            const sessionTimeout = 30 * 60 * 1000;
+
+            if (isAdmin && (currentTime - loginTime) < sessionTimeout) {
+                const username = localStorage.getItem('adminUsername');
+                const role = localStorage.getItem('adminRole');
+                
+                document.querySelector('.admin-login').style.display = 'none';
+                document.querySelector('.admin-panel').style.display = 'grid';
+                document.querySelector('.admin-info').textContent = 
+                    `${username} (${role})`;
+                
+                if (role === 'editor') {
+                    document.querySelectorAll('.nav-btn').forEach(btn => {
+                        if (btn.textContent !== '留言管理') {
+                            btn.classList.add('locked');
+                            btn.disabled = true;
+                        }
+                    });
+                } else if (role === 'admin') {
+                    document.querySelectorAll('.nav-btn').forEach(btn => {
+                        if (btn.textContent === '账号管理') {
+                            btn.classList.add('locked');
+                            btn.disabled = true;
+                        }
+                    });
+                }
+                
+                applyLockEffects();
+                loadMessages();
+            } else {
+                logout();
+            }
+        }
+
+        // 加载所有留言
+        async function loadMessages() {
+            try {
+                const querySnapshot = await db.collection('messages')
+                    .orderBy('createdAt', 'desc')
+                    .get();
+                
+                const messageList = document.getElementById('messageList');
+                messageList.innerHTML = '';
+                
+                const canDelete = hasDeletePermission();
+                
+                querySnapshot.forEach(doc => {
+                    const data = doc.data();
+                    const messageElement = document.createElement('div');
+                    messageElement.className = 'message-item';
+                    
+                    const timestamp = data.createdAt ? data.createdAt.toDate().toLocaleString() : '时间未知';
+                    
+                    messageElement.innerHTML = `
+                        <div class="message-header">
+                            <strong>${data.name}</strong>
+                            <span>${timestamp}</span>
+                            ${canDelete ? `
+                                <div class="message-actions">
+                                    <button class="delete-btn" onclick="deleteMessage('${doc.id}')">删除</button>
+                                    <button class="block-btn" onclick="blockUser('${data.name}')">屏蔽用户</button>
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="message-content">${data.content}</div>
+                    `;
+                    messageList.appendChild(messageElement);
+                });
+            } catch (error) {
+                console.error('加载失败:', error);
+                showToast('加载留言失败：' + error.message);
+            }
+        }
+
+        // 删除留言
+        async function deleteMessage(messageId) {
+            if (confirm('确定要删除这条留言吗？')) {
+                try {
+                    await db.collection('messages').doc(messageId).delete();
+                    showToast('删除成功');
+                    loadMessages();
+                } catch (error) {
+                    console.error('删除失败:', error);
+                    showToast('删除失败：' + error.message);
+                }
+            }
+        }
+
+        // 屏蔽用户
+        function blockUser(username) {
+            if (confirm(`确定要屏蔽用户 "${username}" 吗？`)) {
+                const blockedUsers = JSON.parse(localStorage.getItem('blockedUsers') || '[]');
+                if (!blockedUsers.includes(username)) {
+                    blockedUsers.push(username);
+                    localStorage.setItem('blockedUsers', JSON.stringify(blockedUsers));
+                    showToast(`已屏蔽用户 "${username}"`);
+                }
+            }
+        }
+
+        // 检查删除权限
+        function hasDeletePermission() {
+            const role = localStorage.getItem('adminRole');
+            return role === '主系统' || role === 'admin';
+        }
+
+        // 页面加载时检查登录状态
+        checkLoginStatus();
+
+        // 搜索留言
+        document.getElementById('searchMessage').addEventListener('input', function(e) {
+            const searchText = e.target.value.toLowerCase();
+            const messages = document.querySelectorAll('.message-item');
+            
+            messages.forEach(message => {
+                const content = message.querySelector('.message-content').textContent.toLowerCase();
+                const name = message.querySelector('strong').textContent.toLowerCase();
+                
+                if (content.includes(searchText) || name.includes(searchText)) {
+                    message.style.display = 'block';
+                } else {
+                    message.style.display = 'none';
+                }
+            });
+        });
+
+        // 留言过滤
+        document.getElementById('messageFilter').addEventListener('change', function(e) {
+            const filter = e.target.value;
+            const now = new Date();
+            const messages = document.querySelectorAll('.message-item');
+            
+            messages.forEach(message => {
+                const timestamp = message.querySelector('span').textContent;
+                const messageDate = new Date(timestamp);
+                
+                let show = true;
+                if (filter === 'today') {
+                    show = messageDate.toDateString() === now.toDateString();
+                } else if (filter === 'week') {
+                    const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+                    show = messageDate >= weekAgo;
+                } else if (filter === 'month') {
+                    show = messageDate.getMonth() === now.getMonth() &&
+                           messageDate.getFullYear() === now.getFullYear();
+                }
+                
+                message.style.display = show ? 'block' : 'none';
+            });
+        });
+
+        // 添加新管理员账号
+        document.getElementById('newAccountForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const username = document.getElementById('newUsername').value.trim();
+            const password = document.getElementById('newPassword').value;
+            const role = document.getElementById('newRole').value;
+            
+            if (ADMIN_CREDENTIALS[username]) {
+                showToast('用户名已存在');
+                return;
+            }
+            
+            const passwordHash = CryptoJS.SHA256(password).toString();
+            ADMIN_CREDENTIALS[username] = {
+                password: passwordHash,
+                role: role
+            };
+            
+            showToast('添加账号成功');
+            hideAddAccountForm();
+            loadAccounts();
+        });
+
+        // 加载账号列表
+        function loadAccounts() {
+            const accountList = document.getElementById('accountList');
+            accountList.innerHTML = '';
+            
+            Object.entries(ADMIN_CREDENTIALS).forEach(([username, info]) => {
+                const accountElement = document.createElement('div');
+                accountElement.className = 'account-item';
+                accountElement.innerHTML = `
+                    <div class="account-info">
+                        <strong>${username}</strong>
+                        <span>${info.role}</span>
+                    </div>
+                    ${info.role !== '主系统' ? `
+                        <div class="account-actions">
+                            <button class="edit-btn" onclick="editAccount('${username}')">编辑</button>
+                            <button class="delete-btn" onclick="deleteAccount('${username}')">删除</button>
+                        </div>
+                    ` : ''}
+                `;
+                accountList.appendChild(accountElement);
+            });
+        }
+
+        // 显示帮助说明
+        function showHelp() {
+            const modal = document.getElementById('helpModal');
+            modal.style.display = 'flex';
+            // 添加点击外部关闭
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    hideHelp();
+                }
+            });
+        }
+
+        // 隐藏帮助说明
+        function hideHelp() {
+            document.getElementById('helpModal').style.display = 'none';
+        }
+
+        // 添加密钥组合监听
+        let ctrlPressed = false;
+        let altPressed = false;
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Control') ctrlPressed = true;
+            if (e.key === 'Alt') altPressed = true;
+            if (ctrlPressed && altPressed && e.key === 's') {
+                e.preventDefault();
+                const role = localStorage.getItem('adminRole');
+                if (role === '主系统') {
+                    showSecretPanel();
+                }
+            }
+        });
+
+        document.addEventListener('keyup', function(e) {
+            if (e.key === 'Control') ctrlPressed = false;
+            if (e.key === 'Alt') altPressed = false;
+        });
+
+        // 显示秘密面板
+        function showSecretPanel() {
+            const modal = document.getElementById('secretModal');
+            const content = document.getElementById('secretContent');
+            content.innerHTML = '';
+            
+            // 显示所有账号信息
+            const decryptedInfo = Object.entries(ADMIN_CREDENTIALS).map(([username, info]) => {
+                return `
+                    <div class="secret-item">
+                        <h4>${username}</h4>
+                        <p>角色：${info.role}</p>
+                        <p class="password-info">
+                            <span class="label">原始密码：</span>
+                            <span class="value">${info.originalPassword}</span>
+                            <button class="copy-btn" onclick="copyToClipboard('${info.originalPassword}')">复制</button>
+                        </p>
+                        <p class="hash-info">
+                            <span class="label">密码哈希：</span>
+                            <span class="value">${info.password}</span>
+                            <button class="copy-btn" onclick="copyToClipboard('${info.password}')">复制</button>
+                        </p>
+                    </div>
+                `;
+            }).join('');
+            
+            content.innerHTML = decryptedInfo;
+            modal.style.display = 'flex';
+        }
+
+        // 隐藏秘密面板
+        function hideSecretPanel() {
+            document.getElementById('secretModal').style.display = 'none';
+        }
+
+        // 复制到剪贴板
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('已复制到剪贴板');
+            }).catch(err => {
+                console.error('复制失败:', err);
+                showToast('复制失败');
+            });
+        }
+
+        // 在登录成功后添加锁定效果
+        function applyLockEffects() {
+            const role = localStorage.getItem('adminRole');
+            const buttons = document.querySelectorAll('.nav-btn');
+            
+            buttons.forEach(btn => {
+                if ((role === 'editor' && btn.textContent !== '留言管理') ||
+                    (role === 'admin' && btn.textContent === '账号管理')) {
+                    
+                    // 创建包装器元素
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'locked-wrapper';
+                    btn.parentNode.insertBefore(wrapper, btn);
+                    wrapper.appendChild(btn);
+                    
+                    // 创建提示元素
+                    const tooltip = document.createElement('div');
+                    tooltip.className = 'locked-tooltip';
+                    tooltip.textContent = '无权限访问此功能';
+                    wrapper.appendChild(tooltip);
+                    
+                    btn.classList.add('locked');
+                    btn.disabled = true;
+                }
+            });
+        }
+    </script>
+
+    <style>
+        /* 添加到现有的style标签中 */
+        @keyframes shake {
+            0% { 
+                transform: translateX(0) rotate(0); 
+            }
+            10% { 
+                transform: translateX(calc(var(--shake-intensity) * -1)) rotate(calc(var(--shake-intensity) * -0.5deg));
+            }
+            20% { 
+                transform: translateX(var(--shake-intensity)) rotate(calc(var(--shake-intensity) * 0.5deg));
+            }
+            30% { 
+                transform: translateX(calc(var(--shake-intensity) * -1.2)) rotate(calc(var(--shake-intensity) * -0.7deg));
+            }
+            40% { 
+                transform: translateX(calc(var(--shake-intensity) * 1.2)) rotate(calc(var(--shake-intensity) * 0.7deg));
+            }
+            50% { 
+                transform: translateX(calc(var(--shake-intensity) * -1.5)) rotate(calc(var(--shake-intensity) * -0.9deg));
+            }
+            60% { 
+                transform: translateX(calc(var(--shake-intensity) * 1.5)) rotate(calc(var(--shake-intensity) * 0.9deg));
+            }
+            70% { 
+                transform: translateX(calc(var(--shake-intensity) * -1.8)) rotate(calc(var(--shake-intensity) * -1.1deg));
+            }
+            80% { 
+                transform: translateX(calc(var(--shake-intensity) * 1.8)) rotate(calc(var(--shake-intensity) * 1.1deg));
+            }
+            90% { 
+                transform: translateX(calc(var(--shake-intensity) * -2)) rotate(calc(var(--shake-intensity) * -1.3deg));
+            }
+            100% { 
+                transform: translateX(calc(var(--shake-intensity) * 2)) rotate(calc(var(--shake-intensity) * 1.3deg));
+            }
+        }
+
+        @keyframes explode {
+            0% { 
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.5);
+                opacity: 0.8;
+            }
+            100% {
+                transform: scale(2);
+                opacity: 0;
+            }
+        }
+
+        @keyframes particle-fall {
+            0% {
+                transform: translateY(0) translateX(0) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(1000px) translateX(var(--particle-x)) rotate(var(--particle-rotate));
+                opacity: 0;
+            }
+        }
+
+        .locked {
+            position: relative;
+            opacity: 0.7;
+            cursor: not-allowed;
+            background-color: #f3f4f6;
+            border: 1px solid #d1d5db;
+            pointer-events: none;
+        }
+
+        .locked::before {
+            content: '🔒';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            z-index: 10;
+            filter: grayscale(100%) brightness(0.8);
+        }
+
+        .locked::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: repeating-linear-gradient(
+                45deg,
+                rgba(128, 128, 128, 0.3),
+                rgba(128, 128, 128, 0.3) 10px,
+                rgba(169, 169, 169, 0.4) 10px,
+                rgba(169, 169, 169, 0.4) 20px
+            );
+            border-radius: inherit;
+            z-index: 5;
+            border: 2px solid rgba(128, 128, 128, 0.5);
+        }
+
+        .locked-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        .locked-tooltip {
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            margin-top: 5px;
+            z-index: 100;
+        }
+
+        .locked-wrapper:hover .locked-tooltip,
+        .locked-wrapper:active .locked-tooltip {
+            opacity: 1;
+        }
+
+        .shaking {
+            animation: shake 0.15s infinite;
+            animation-timing-function: linear;
+        }
+
+        .exploding {
+            animation: explode 0.5s ease-out forwards;
+        }
+
+        .particle {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #808080;
+            border-radius: 50%;
+            animation: particle-fall 5s ease-in forwards;
+        }
+
+        /* 添加到现有的style标签中或admin.css文件中 */
+        .secret-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .secret-item {
+            background: rgba(99, 102, 241, 0.1);
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border-radius: 12px;
+            border: 1px solid rgba(99, 102, 241, 0.2);
+        }
+
+        .secret-item h4 {
+            color: #6366f1;
+            margin: 0 0 1rem 0;
+            font-size: 1.2rem;
+        }
+
+        .password-info, .hash-info {
+            display: flex;
+            align-items: center;
+            margin: 0.5rem 0;
+            padding: 0.5rem;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 6px;
+        }
+
+        .label {
+            color: #4b5563;
+            font-weight: 500;
+            min-width: 100px;
+        }
+
+        .value {
+            font-family: monospace;
+            color: #1f2937;
+            padding: 0.25rem 0.5rem;
+            background: rgba(99, 102, 241, 0.1);
+            border-radius: 4px;
+            margin: 0 0.5rem;
+            flex: 1;
+        }
+
+        .copy-btn {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+        }
+
+        .copy-btn:hover {
+            background: #4f46e5;
+        }
+
+        .secret-modal .help-content {
+            max-width: 800px;
+            background: white;
+            padding: 2rem;
+        }
+    </style>
+</body>
+</html> 

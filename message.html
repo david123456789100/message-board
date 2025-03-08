@@ -80,6 +80,7 @@
             userId = 'user_' + Math.random().toString(36).substr(2, 9);
             localStorage.setItem('userId', userId);
         }
+        console.log('当前用户ID:', userId); // 添加调试信息
 
         // 获取保存的留言
         async function loadMessages() {
@@ -94,6 +95,7 @@
                 
                 querySnapshot.forEach(doc => {
                     const data = doc.data();
+                    console.log('留言ID:', doc.id, '发布者ID:', data.userId); // 添加调试信息
                     const messageElement = document.createElement('div');
                     messageElement.className = 'message-item';
                     messageElement.setAttribute('data-aos', 'fade-up');
@@ -102,7 +104,9 @@
                     const timestamp = data.createdAt ? data.createdAt.toDate().toLocaleString() : '时间未知';
                     
                     // 只有发布者能看到删除按钮
-                    const deleteButton = data.userId === userId ? 
+                    const isOwner = data.userId === userId;
+                    console.log('是否是发布者:', isOwner); // 添加调试信息
+                    const deleteButton = isOwner ? 
                         `<button class="delete-btn" onclick="deleteMessage('${doc.id}')">删除</button>` : '';
                     
                     messageElement.innerHTML = `
@@ -142,12 +146,15 @@
             
             try {
                 // 创建留言，添加用户ID
-                await db.collection('messages').add({
+                const messageData = {
                     name: name,
                     content: content,
-                    userId: userId, // 添加用户ID
+                    userId: userId,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
+                };
+                console.log('发布新留言:', messageData); // 添加调试信息
+                
+                await db.collection('messages').add(messageData);
                 
                 // 重新加载显示留言
                 loadMessages();
@@ -158,6 +165,7 @@
                 // 显示成功提示
                 showToast('留言发表成功！');
             } catch (error) {
+                console.error('发布失败:', error); // 添加调试信息
                 showToast('发表留言失败：' + error.message);
             }
         });
@@ -192,9 +200,15 @@
         // 添加删除留言功能
         async function deleteMessage(messageId) {
             try {
+                console.log('尝试删除留言:', messageId); // 添加调试信息
                 // 检查是否是发布者
                 const doc = await db.collection('messages').doc(messageId).get();
-                if (doc.data().userId !== userId) {
+                const data = doc.data();
+                console.log('留言数据:', data); // 添加调试信息
+                console.log('当前用户:', userId, '发布者:', data.userId); // 添加调试信息
+                
+                if (data.userId !== userId) {
+                    console.log('用户ID不匹配，无法删除'); // 添加调试信息
                     showToast('只能删除自己发布的留言');
                     return;
                 }
@@ -203,6 +217,7 @@
                 showToast('留言已删除');
                 loadMessages(); // 重新加载留言列表
             } catch (error) {
+                console.error('删除失败:', error); // 添加调试信息
                 showToast('删除失败：' + error.message);
             }
         }
