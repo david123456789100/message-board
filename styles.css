@@ -554,3 +554,23 @@ footer {
         padding: 1.5rem;
     }
 }
+
+.delete-btn {
+    background: #ff4757;
+    color: white;
+    border: none;
+    padding: 0.3rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.delete-btn:hover {
+    background: #ff6b81;
+    transform: translateY(-1px);
+}
+
+.delete-btn:active {
+    transform: translateY(1px);
+}

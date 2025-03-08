@@ -74,6 +74,13 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
+        // 生成用户ID并保存到本地存储
+        let userId = localStorage.getItem('userId');
+        if (!userId) {
+            userId = 'user_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('userId', userId);
+        }
+
         // 获取保存的留言
         async function loadMessages() {
             try {
@@ -94,10 +101,15 @@
                     // 添加时间戳检查
                     const timestamp = data.createdAt ? data.createdAt.toDate().toLocaleString() : '时间未知';
                     
+                    // 只有发布者能看到删除按钮
+                    const deleteButton = data.userId === userId ? 
+                        `<button class="delete-btn" onclick="deleteMessage('${doc.id}')">删除</button>` : '';
+                    
                     messageElement.innerHTML = `
                         <div class="message-header">
                             <strong>${data.name}</strong>
                             <span>${timestamp}</span>
+                            ${deleteButton}
                         </div>
                         <div class="message-content">${data.content}</div>
                     `;
@@ -129,10 +141,11 @@
             const content = document.getElementById('message').value;
             
             try {
-                // 创建留言
+                // 创建留言，添加用户ID
                 await db.collection('messages').add({
                     name: name,
                     content: content,
+                    userId: userId, // 添加用户ID
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
                 
@@ -174,6 +187,24 @@
                 toast.classList.remove('show');
                 setTimeout(() => toast.remove(), 300);
             }, 3000);
+        }
+
+        // 添加删除留言功能
+        async function deleteMessage(messageId) {
+            try {
+                // 检查是否是发布者
+                const doc = await db.collection('messages').doc(messageId).get();
+                if (doc.data().userId !== userId) {
+                    showToast('只能删除自己发布的留言');
+                    return;
+                }
+                
+                await db.collection('messages').doc(messageId).delete();
+                showToast('留言已删除');
+                loadMessages(); // 重新加载留言列表
+            } catch (error) {
+                showToast('删除失败：' + error.message);
+            }
         }
 
         AOS.init({
