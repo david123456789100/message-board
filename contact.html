@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>联系我们 - 我的网站</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+</head>
+<body>
+    <nav>
+        <div class="nav-container">
+            <a href="index.html" class="logo">我的网站</a>
+            <ul class="nav-links">
+                <li><a href="index.html">首页</a></li>
+                <li><a href="about.html">关于我们</a></li>
+                <li><a href="contact.html">联系我们</a></li>
+                <li><a href="message.html">留言板</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main>
+        <section class="hero" data-aos="fade-down">
+            <h1>联系我们</h1>
+            <p>我们期待听到您的声音</p>
+        </section>
+
+        <section class="contact-content">
+            <div class="contact-form">
+                <h2>发送消息</h2>
+                <form>
+                    <div class="form-group">
+                        <label for="name">姓名</label>
+                        <input type="text" id="name" name="name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="email">邮箱</label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="message">消息</label>
+                        <textarea id="message" name="message" rows="5" required></textarea>
+                    </div>
+                    
+                    <button type="submit">发送</button>
+                </form>
+            </div>
+            
+            <div class="contact-info">
+                <h2>联系方式</h2>
+                <p>邮箱：contact@example.com</p>
+                <p>电话：+86 123 4567 8900</p>
+                <p>地址：某某市某某区某某街道123号</p>
+                <p class="fun-note">* 这些联系方式都是假的啦 😜</p>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 我的网站. 保留所有权利.</p>
+    </footer>
+
+    <script>
+        AOS.init({
+            duration: 1000,
+            once: true
+        });
+    </script>
+</body>
+</html> 

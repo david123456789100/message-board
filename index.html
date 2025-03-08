@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的网站</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+</head>
+<body>
+    <nav>
+        <div class="nav-container">
+            <a href="index.html" class="logo">我的网站</a>
+            <ul class="nav-links">
+                <li><a href="index.html">首页</a></li>
+                <li><a href="about.html">关于我们</a></li>
+                <li><a href="contact.html">联系我们</a></li>
+                <li><a href="message.html">留言板</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main>
+        <section class="hero" data-aos="fade-down">
+            <h1>欢迎来到我的网站</h1>
+            <p>这是一个简单但精美的网站展示</p>
+        </section>
+
+        <section class="features">
+            <div class="feature-card" data-aos="fade-up" data-aos-delay="100">
+                <h2>待开发功能一</h2>
+                <p>敬请期待...</p>
+            </div>
+            <div class="feature-card" data-aos="fade-up" data-aos-delay="200">
+                <h2>待开发功能二</h2>
+                <p>敬请期待...</p>
+            </div>
+            <div class="feature-card" data-aos="fade-up" data-aos-delay="300">
+                <h2>待开发功能三</h2>
+                <p>敬请期待...</p>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 我的网站. 保留所有权利.</p>
+    </footer>
+
+    <script>
+        AOS.init({
+            duration: 1000,
+            once: true
+        });
+
+        function getNewQuote() {
+            const quoteText = document.getElementById('quoteText');
+            const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+            quoteText.innerHTML = randomQuote;
+        }
+    </script>
+</body>
+</html> 
