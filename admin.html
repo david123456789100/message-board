@@ -122,6 +122,9 @@
                     <strong>管理员信息</strong>
                     <span id="adminInfo"></span>
                 </div>
+                <button id="toggleNav" class="toggle-nav">
+                    <span class="toggle-icon">▲</span>
+                </button>
                 <nav class="admin-nav">
                     <button class="nav-btn active" onclick="switchPanel('message')">留言管理</button>
                     <button class="nav-btn" onclick="switchPanel('account')">账号管理</button>
@@ -690,6 +693,29 @@
                 }
             });
         }
+
+        // 添加导航栏收起/展开功能
+        document.addEventListener('DOMContentLoaded', function() {
+            const toggleNav = document.getElementById('toggleNav');
+            const sidebar = document.querySelector('.admin-sidebar');
+            
+            if (toggleNav && sidebar) {
+                toggleNav.addEventListener('click', function() {
+                    sidebar.classList.toggle('collapsed');
+                    toggleNav.classList.toggle('collapsed');
+                    
+                    // 保存状态到本地存储
+                    localStorage.setItem('navCollapsed', sidebar.classList.contains('collapsed'));
+                });
+                
+                // 恢复上次的状态
+                const isCollapsed = localStorage.getItem('navCollapsed') === 'true';
+                if (isCollapsed) {
+                    sidebar.classList.add('collapsed');
+                    toggleNav.classList.add('collapsed');
+                }
+            }
+        });
     </script>
 
     <style>
@@ -1314,6 +1340,66 @@
 
             .locked-wrapper {
                 width: 100%;
+            }
+        }
+
+        /* 移动端导航栏收起按钮 */
+        .toggle-nav {
+            display: none;
+            width: 100%;
+            padding: 8px;
+            background: #f3f4f6;
+            border: none;
+            border-radius: 6px;
+            color: #4b5563;
+            cursor: pointer;
+            margin-bottom: 8px;
+        }
+
+        .toggle-icon {
+            display: inline-block;
+            transition: transform 0.3s;
+        }
+
+        .toggle-nav.collapsed .toggle-icon {
+            transform: rotate(180deg);
+        }
+
+        /* 移动端适配 */
+        @media screen and (max-width: 767px) {
+            .toggle-nav {
+                display: block;
+            }
+
+            .admin-sidebar {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                z-index: 1000;
+                background: white;
+                padding: 8px;
+                box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+                height: auto;
+                transition: transform 0.3s ease-in-out;
+            }
+
+            .admin-sidebar.collapsed {
+                transform: translateY(calc(100% - 40px));
+            }
+
+            .admin-sidebar.collapsed .admin-nav {
+                opacity: 0;
+                pointer-events: none;
+            }
+
+            .admin-nav {
+                opacity: 1;
+                transition: opacity 0.3s;
+            }
+
+            .admin-content {
+                margin-bottom: 100px;
             }
         }
     </style>
